@@ -46,12 +46,16 @@ const LoginPage = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h2>Login</h2>
-        <p>Welcome back! Please login to continue</p>
+
+        <h2 className="auth-title">Login</h2>
+        <p className="auth-subtitle">
+          Welcome back! Please login to continue
+        </p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
+
           <div className="form-group">
             <label>Email</label>
             <input
@@ -76,21 +80,22 @@ const LoginPage = () => {
             />
           </div>
 
+          {/* 🔥 FIXED BUTTON */}
           <button
             type="submit"
-            className="btn btn-primary btn-full"
+            className="auth-btn"
             disabled={loading}
           >
             {loading ? "Logging in..." : "Login"}
           </button>
+
         </form>
 
-        <p style={{ marginTop: "12px", fontSize: "13px" }}>
+        <p className="auth-footer">
           Don’t have an account?{" "}
-          <Link to="/register" style={{ color: "#8b85ff" }}>
-            Register
-          </Link>
+          <Link to="/register">Register</Link>
         </p>
+
       </div>
     </div>
   );
