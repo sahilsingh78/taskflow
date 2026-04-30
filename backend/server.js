@@ -12,38 +12,23 @@ const userRoutes = require("./routes/users");
 
 const app = express();
 
-/* ─── CORS CONFIG (FIXED FOR VERCEL) ───────────────── */
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://taskflow-lake-seven.vercel.app",
-];
-
+/* ─── CORS───────────────── */
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (like Postman)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true,
     credentials: true,
   })
 );
-
-// Handle preflight requests
-app.options("*", cors());
 
 /* ─── MIDDLEWARE ───────────────── */
 app.use(express.json());
 
 /* ─── ROUTES ───────────────── */
 app.get("/", (req, res) => {
-  res.json({ message: "TaskFlow API is running", version: "1.0.0" });
+  res.json({
+    message: "TaskFlow API is running",
+    version: "1.0.0",
+  });
 });
 
 app.use("/api/auth", authRoutes);
@@ -53,7 +38,8 @@ app.use("/api/users", userRoutes);
 
 /* ─── ERROR HANDLER ───────────────── */
 app.use((err, req, res, next) => {
-  console.error("Error:", err.message);
+  console.error("SERVER ERROR:", err);
+
   res.status(500).json({
     message: err.message || "Internal Server Error",
   });
