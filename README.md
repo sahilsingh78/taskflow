@@ -243,11 +243,13 @@ The frontend proxies API calls to `localhost:5000` via the `proxy` field in `pac
 
 ---
 
-⚡ Challenges Faced
+##⚡ Challenges Faced
 
 Designing role-based access across frontend and backend
 Managing relationships between users, projects, and tasks
 Handling edge cases like overdue tasks and permissions
+
+---
 
 ## 👨‍💻 Author
 
