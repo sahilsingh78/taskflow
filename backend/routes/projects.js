@@ -1,21 +1,39 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-
 const Project = require("../models/Project");
 const Task = require("../models/Task");
 const User = require("../models/User");
-
 const { protect } = require("../middleware/authMiddleware");
-const requireRole = require("../middleware/requireRole");
 
 const router = express.Router();
 
-// all routes require login
 router.use(protect);
 
-//
-// ─── GET ALL PROJECTS ─────────────────────────────
-//
+// Helper - check if user is owner or member of project
+const canAccess = (project, userId) => {
+  const id = userId.toString();
+  const isOwner = project.owner?._id
+    ? project.owner._id.toString() === id
+    : project.owner?.toString() === id;
+  const isMember = project.members.some(
+    (m) => (m.user?._id || m.user)?.toString() === id
+  );
+  return isOwner || isMember;
+};
+
+// Helper - check if user is a project-level admin
+const isProjectAdmin = (project, userId) => {
+  const id = userId.toString();
+  const isOwner = project.owner?._id
+    ? project.owner._id.toString() === id
+    : project.owner?.toString() === id;
+  const member = project.members.find(
+    (m) => (m.user?._id || m.user)?.toString() === id
+  );
+  return isOwner || member?.role === "admin";
+};
+
+// GET /api/projects
 router.get("/", async (req, res) => {
   try {
     const projects = await Project.find({
@@ -30,17 +48,13 @@ router.get("/", async (req, res) => {
 
     res.json(projects);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to fetch projects" });
   }
 });
 
-//
-// ─── CREATE PROJECT (ADMIN ONLY GLOBAL ROLE) ───────
-//
+// POST /api/projects
 router.post(
   "/",
-  requireRole("admin"), // 🔥 GLOBAL RBAC
   [body("name").trim().notEmpty().withMessage("Project name is required")],
   async (req, res) => {
     const errors = validationResult(req);
@@ -48,21 +62,17 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    try {
-      const { name, description, dueDate, color } = req.body;
+    const { name, description, dueDate, color } = req.body;
 
+    try {
       const project = await Project.create({
-        name: name.trim(),
+        name,
         description,
         dueDate,
         color,
         owner: req.user._id,
-        members: [
-          {
-            user: req.user._id,
-            role: "admin",
-          },
-        ],
+        // Creator is automatically added as project admin
+        members: [{ user: req.user._id, role: "admin" }],
       });
 
       await project.populate("owner", "name email");
@@ -70,15 +80,13 @@ router.post(
 
       res.status(201).json(project);
     } catch (err) {
-      console.error(err);
+      console.error("Create project error:", err.message);
       res.status(500).json({ message: "Failed to create project" });
     }
   }
 );
 
-//
-// ─── GET SINGLE PROJECT ───────────────────────────
-//
+// GET /api/projects/:id
 router.get("/:id", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
@@ -89,94 +97,78 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    // access control
-    if (
-      !project.isMember(req.user._id) &&
-      project.owner.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Access denied" });
+    if (!canAccess(project, req.user._id)) {
+      return res.status(403).json({ message: "You are not a member of this project" });
     }
 
     res.json(project);
   } catch (err) {
-    console.error(err);
+    console.error("Get project error:", err.message);
     res.status(500).json({ message: "Failed to fetch project" });
   }
 });
 
-//
-// ─── UPDATE PROJECT (PROJECT ADMIN / OWNER) ───────
-//
+// PUT /api/projects/:id
 router.put("/:id", async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id)
+      .populate("owner", "name email")
+      .populate("members.user", "name email");
 
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    const role = project.getMemberRole(req.user._id);
-
-    if (
-      role !== "admin" &&
-      project.owner.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (!isProjectAdmin(project, req.user._id)) {
+      return res.status(403).json({ message: "Only project admins can edit this project" });
     }
 
     const { name, description, status, dueDate, color } = req.body;
 
-    if (name !== undefined) project.name = name.trim();
+    if (name) project.name = name;
     if (description !== undefined) project.description = description;
-    if (status !== undefined) project.status = status;
+    if (status) project.status = status;
     if (dueDate !== undefined) project.dueDate = dueDate;
-    if (color !== undefined) project.color = color;
+    if (color) project.color = color;
 
     await project.save();
-
     await project.populate("owner", "name email");
     await project.populate("members.user", "name email");
 
     res.json(project);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to update project" });
   }
 });
 
-//
-// ─── ADD MEMBER (PROJECT ADMIN / OWNER) ───────────
-//
+// POST /api/projects/:id/members - add a member by email
 router.post("/:id/members", async (req, res) => {
   try {
-    const { email, role } = req.body;
-
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id)
+      .populate("owner", "name email")
+      .populate("members.user", "name email");
 
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    const requesterRole = project.getMemberRole(req.user._id);
-
-    if (
-      requesterRole !== "admin" &&
-      project.owner.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Only admins can add members" });
+    if (!isProjectAdmin(project, req.user._id)) {
+      return res.status(403).json({ message: "Only project admins can add members" });
     }
 
+    const { email, role } = req.body;
     const userToAdd = await User.findOne({ email });
 
     if (!userToAdd) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: "No user found with that email" });
     }
 
-    if (
-      project.isMember(userToAdd._id) ||
-      project.owner.toString() === userToAdd._id.toString()
-    ) {
-      return res.status(400).json({ message: "User already in project" });
+    const alreadyMember = project.members.some(
+      (m) => (m.user?._id || m.user)?.toString() === userToAdd._id.toString()
+    );
+
+    if (alreadyMember) {
+      return res.status(400).json({ message: "User is already a member" });
     }
 
     project.members.push({
@@ -189,14 +181,12 @@ router.post("/:id/members", async (req, res) => {
 
     res.json(project);
   } catch (err) {
-    console.error(err);
+    console.error("Add member error:", err.message);
     res.status(500).json({ message: "Failed to add member" });
   }
 });
 
-//
-// ─── REMOVE MEMBER (PROJECT ADMIN / OWNER) ────────
-//
+// DELETE /api/projects/:id/members/:userId
 router.delete("/:id/members/:userId", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -205,35 +195,22 @@ router.delete("/:id/members/:userId", async (req, res) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    const requesterRole = project.getMemberRole(req.user._id);
-
-    if (
-      requesterRole !== "admin" &&
-      project.owner.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Only admins can remove members" });
-    }
-
-    if (req.params.userId === project.owner.toString()) {
-      return res.status(400).json({ message: "Cannot remove owner" });
+    if (!isProjectAdmin(project, req.user._id)) {
+      return res.status(403).json({ message: "Only project admins can remove members" });
     }
 
     project.members = project.members.filter(
-      (m) => m.user.toString() !== req.params.userId
+      (m) => (m.user?._id || m.user)?.toString() !== req.params.userId
     );
 
     await project.save();
-
-    res.json({ message: "Member removed" });
+    res.json({ message: "Member removed successfully" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to remove member" });
   }
 });
 
-//
-// ─── DELETE PROJECT (OWNER ONLY) ──────────────────
-//
+// DELETE /api/projects/:id
 router.delete("/:id", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -242,8 +219,9 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    if (project.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Only owner can delete project" });
+    const ownerId = project.owner?._id || project.owner;
+    if (ownerId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the project owner can delete it" });
     }
 
     await Task.deleteMany({ project: project._id });
@@ -251,7 +229,6 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ message: "Project deleted successfully" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to delete project" });
   }
 });
