@@ -17,7 +17,11 @@ const userRoutes = require("./routes/users");
 /* 🔥 CORS (Production Safe) */
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "*", // set your frontend URL in .env
+    origin: [
+      "https://taskflow-lake-seven.vercel.app",
+      "http://localhost:5173",
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
     credentials: true,
   })
 );
