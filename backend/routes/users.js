@@ -1,72 +1,59 @@
-const express = require("express");
-const User = require("../models/User");
-const { protect, adminOnly } = require("../middleware/authMiddleware");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
-const router = express.Router();
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+      minlength: [2, "Name must be at least 2 characters"],
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [6, "Password must be at least 6 characters"],
+    },
+    role: {
+      type: String,
+      enum: ["admin", "member"],
+      default: "member",
+    },
+    avatar: {
+      type: String,
+      default: "",
+    },
+  },
+  { timestamps: true }
+);
 
-router.use(protect);
+/* ─── HASH PASSWORD ───────────────── */
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
 
-// GET all users (admin only)
-router.get("/", adminOnly, async (req, res) => {
-  try {
-    const users = await User.find()
-      .select("name email role")
-      .sort({ name: 1 });
-
-    res.json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch users" });
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
-// SEARCH users
-router.get("/search", async (req, res) => {
-  try {
-    const { q } = req.query;
+/* ─── COMPARE PASSWORD ───────────────── */
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
-    if (!q || q.trim() === "") {
-      return res.json([]);
-    }
+/* ─── REMOVE PASSWORD FROM RESPONSE ───────────────── */
+userSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password;
+  return obj;
+};
 
-    const users = await User.find({
-      $or: [
-        { name: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
-      ],
-    })
-      .select("name email role")
-      .limit(10);
-
-    res.json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Search failed" });
-  }
-});
-
-// UPDATE profile
-router.put("/profile", async (req, res) => {
-  try {
-    const { name } = req.body;
-
-    const user = await User.findById(req.user._id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (name) {
-      user.name = name.trim();
-    }
-
-    await user.save();
-
-    res.json(user);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update profile" });
-  }
-});
-
-module.exports = router;
+/* CORRECT EXPORT */
+module.exports = mongoose.model("User", userSchema);

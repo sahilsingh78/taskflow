@@ -1,12 +1,12 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
-const User = require("../models/User");
+const User = require("../models/User"); // ✅ IMPORTANT (no destructuring)
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-/* ─── Generate JWT ───────────────── */
+/* ─── GENERATE TOKEN ───────────────── */
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
     expiresIn: "7d",
@@ -77,6 +77,7 @@ router.post(
       const { email, password } = req.body;
 
       const user = await User.findOne({ email });
+
       if (!user || !(await user.matchPassword(password))) {
         return res.status(401).json({
           message: "Invalid email or password",
@@ -97,7 +98,7 @@ router.post(
   }
 );
 
-/* ─── GET CURRENT USER ───────────────── */
+/* ─── CURRENT USER ───────────────── */
 router.get("/me", protect, async (req, res) => {
   res.json(req.user);
 });
