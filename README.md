@@ -243,17 +243,6 @@ The frontend proxies API calls to `localhost:5000` via the `proxy` field in `pac
 
 ---
 
-🔐 Demo Credentials
-
-Admin
-Email: admin@test.com
-Password: 123456
-
-Member
-Email: member@test.com
-Password: 123456
----
-
 ⚡ Challenges Faced
 
 Designing role-based access across frontend and backend
