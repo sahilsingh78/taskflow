@@ -4,14 +4,16 @@ import api from "../utils/api";
 const MyTasksPage = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [error, setError] = useState("");
 
   const fetchTasks = async () => {
     try {
-      // 🔥 better endpoint (you already built this)
       const { data } = await api.get("/tasks/my");
       setTasks(data);
     } catch (err) {
-      console.error("Failed to load tasks:", err);
+      console.error(err);
+      setError("Failed to load tasks");
     } finally {
       setLoading(false);
     }
@@ -23,10 +25,21 @@ const MyTasksPage = () => {
 
   const updateStatus = async (taskId, status) => {
     try {
+      setUpdatingId(taskId);
+
       await api.put(`/tasks/${taskId}`, { status });
-      fetchTasks();
+
+      // 🔥 Optimistic update (no full reload needed)
+      setTasks((prev) =>
+        prev.map((t) =>
+          t._id === taskId ? { ...t, status } : t
+        )
+      );
     } catch (err) {
-      console.error("Failed to update task:", err);
+      console.error(err);
+      setError("Failed to update task");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -40,6 +53,9 @@ const MyTasksPage = () => {
         <h1 className="page-title">My Tasks</h1>
         <p className="page-subtitle">Tasks assigned to you</p>
       </div>
+
+      {/* Error */}
+      {error && <p className="error-text">{error}</p>}
 
       {/* Task Grid */}
       <div className="task-grid">
@@ -93,6 +109,7 @@ const MyTasksPage = () => {
             <div className="task-actions">
               <button
                 className="btn-status"
+                disabled={updatingId === task._id}
                 onClick={() => updateStatus(task._id, "todo")}
               >
                 Todo
@@ -100,6 +117,7 @@ const MyTasksPage = () => {
 
               <button
                 className="btn-status"
+                disabled={updatingId === task._id}
                 onClick={() => updateStatus(task._id, "in-progress")}
               >
                 In Progress
@@ -107,9 +125,10 @@ const MyTasksPage = () => {
 
               <button
                 className="btn-status done"
+                disabled={updatingId === task._id}
                 onClick={() => updateStatus(task._id, "done")}
               >
-                Done
+                {updatingId === task._id ? "Updating..." : "Done"}
               </button>
             </div>
 

@@ -6,13 +6,15 @@ import Header from "./Header";
 const AppLayout = () => {
   return (
     <div className="app-container">
-      
+
       {/* Sidebar */}
-      <Sidebar />
+      <aside className="sidebar-wrapper">
+        <Sidebar />
+      </aside>
 
       {/* Main Area */}
-      <div className="main-content">
-        
+      <div className="main-wrapper">
+
         {/* Header */}
         <Header />
 
@@ -22,6 +24,7 @@ const AppLayout = () => {
         </main>
 
       </div>
+
     </div>
   );
 };

@@ -6,6 +6,8 @@ const ProjectsPage = () => {
   const [projects, setProjects] = useState([]);
   const [newProject, setNewProject] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
@@ -14,7 +16,8 @@ const ProjectsPage = () => {
       const { data } = await api.get("/projects");
       setProjects(data);
     } catch (err) {
-      console.error("Failed to load projects:", err);
+      setError("Failed to load projects");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -28,6 +31,8 @@ const ProjectsPage = () => {
     if (!newProject.trim()) return;
 
     try {
+      setCreating(true);
+
       await api.post("/projects", {
         name: newProject,
       });
@@ -35,7 +40,10 @@ const ProjectsPage = () => {
       setNewProject("");
       fetchProjects();
     } catch (err) {
-      console.error("Failed to create project:", err);
+      console.error(err);
+      setError("Failed to create project");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -50,6 +58,9 @@ const ProjectsPage = () => {
         <p className="page-subtitle">Manage your projects</p>
       </div>
 
+      {/* Error */}
+      {error && <p className="error-text">{error}</p>}
+
       {/* Create Project */}
       <div className="task-input-box">
         <input
@@ -59,8 +70,13 @@ const ProjectsPage = () => {
           onChange={(e) => setNewProject(e.target.value)}
           className="form-control"
         />
-        <button className="btn-primary" onClick={handleCreateProject}>
-          Create Project
+
+        <button
+          className="btn-primary"
+          onClick={handleCreateProject}
+          disabled={creating}
+        >
+          {creating ? "Creating..." : "Create Project"}
         </button>
       </div>
 
@@ -80,36 +96,29 @@ const ProjectsPage = () => {
               borderLeft: `5px solid ${project.color || "#6366f1"}`,
             }}
           >
-            {/* Title */}
             <h3>{project.name}</h3>
 
-            {/* Description */}
             {project.description && (
               <p className="task-meta">{project.description}</p>
             )}
 
-            {/* Status */}
             <p className={`task-status status-${project.status}`}>
               Status: <span>{project.status}</span>
             </p>
 
-            {/* Members count */}
             {project.members && (
               <p className="task-meta">
                 👥 {project.members.length} members
               </p>
             )}
 
-            {/* Due date */}
             {project.dueDate && (
               <p className="task-meta">
                 📅 {new Date(project.dueDate).toLocaleDateString()}
               </p>
             )}
 
-            <div className="task-meta">
-              Click to view →
-            </div>
+            <div className="task-meta">Click to view →</div>
           </div>
         ))}
       </div>

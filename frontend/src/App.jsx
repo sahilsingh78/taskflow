@@ -8,6 +8,8 @@ import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import MyTasksPage from "./pages/MyTasksPage";
+import TeamPage from "./pages/TeamPage"; // 🔥 NEW
+
 import AppLayout from "./components/layout/AppLayout";
 
 import "./index.css";
@@ -22,7 +24,9 @@ const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) return <LoadingScreen />;
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+
+  return children;
 };
 
 /* ─── Public Route ───────────────── */
@@ -30,14 +34,31 @@ const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) return <LoadingScreen />;
-  return user ? <Navigate to="/dashboard" replace /> : children;
+  if (user) return <Navigate to="/dashboard" replace />;
+
+  return children;
+};
+
+/* ─── Admin Route (🔥 NEW) ───────────────── */
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 };
 
 /* ─── App Routes ───────────────── */
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Public Routes (NO LAYOUT) */}
+
+      {/* 🔓 Public Routes */}
       <Route
         path="/login"
         element={
@@ -56,7 +77,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Protected Routes (WITH LAYOUT) */}
+      {/* 🔐 Protected Routes (with Layout) */}
       <Route
         path="/"
         element={
@@ -65,15 +86,29 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        {/* Default redirect */}
+        <Route index element={<Navigate to="dashboard" replace />} />
+
+        {/* Core Pages */}
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
         <Route path="my-tasks" element={<MyTasksPage />} />
+
+        {/* 🔥 Admin-only Route */}
+        <Route
+          path="team"
+          element={
+            <AdminRoute>
+              <TeamPage />
+            </AdminRoute>
+          }
+        />
       </Route>
 
-      {/* 🔁 Fallback */}
+      {/* 🔁 Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
+
     </Routes>
   );
 };

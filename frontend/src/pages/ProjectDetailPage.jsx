@@ -15,20 +15,24 @@ const ProjectDetailPage = () => {
   const [priority, setPriority] = useState("medium");
 
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
+  // 🔥 FETCH DATA
   const fetchData = async () => {
     try {
       const [projectRes, tasksRes, membersRes] = await Promise.all([
         api.get(`/projects/${id}`),
         api.get(`/tasks?project=${id}`),
-        api.get(`/projects/${id}/members`) // 🔥 FIXED
+        api.get(`/projects/${id}/members`)
       ]);
 
       setProject(projectRes.data);
       setTasks(tasksRes.data);
       setMembers(membersRes.data);
     } catch (err) {
-      console.error("Error loading project:", err);
+      console.error(err);
+      setError("Failed to load project data");
     } finally {
       setLoading(false);
     }
@@ -38,11 +42,13 @@ const ProjectDetailPage = () => {
     fetchData();
   }, [id]);
 
-  // CREATE TASK
+  // 🔥 CREATE TASK
   const handleCreateTask = async () => {
     if (!newTask.trim()) return;
 
     try {
+      setCreating(true);
+
       await api.post("/tasks", {
         title: newTask,
         project: id,
@@ -58,20 +64,25 @@ const ProjectDetailPage = () => {
 
       fetchData();
     } catch (err) {
-      console.error("Failed to create task:", err);
+      console.error(err);
+      setError("Failed to create task");
+    } finally {
+      setCreating(false);
     }
   };
 
-  // UPDATE STATUS
+  // 🔥 UPDATE STATUS
   const updateStatus = async (taskId, status) => {
     try {
       await api.put(`/tasks/${taskId}`, { status });
       fetchData();
     } catch (err) {
-      console.error("Failed to update task:", err);
+      console.error(err);
+      setError("Failed to update task");
     }
   };
 
+  // 🔥 UI STATES
   if (loading) return <div className="center-text">Loading project...</div>;
   if (!project) return <div className="center-text">Project not found</div>;
 
@@ -84,6 +95,9 @@ const ProjectDetailPage = () => {
         <p className="page-subtitle">{project.description}</p>
       </div>
 
+      {/* Error */}
+      {error && <p className="error-text">{error}</p>}
+
       {/* CREATE TASK */}
       <div className="task-input-box">
 
@@ -95,7 +109,6 @@ const ProjectDetailPage = () => {
           className="form-control"
         />
 
-        {/* 🔥 Assign only project members */}
         <select
           value={assignedTo}
           onChange={(e) => setAssignedTo(e.target.value)}
@@ -127,13 +140,18 @@ const ProjectDetailPage = () => {
           <option value="critical">Critical</option>
         </select>
 
-        <button className="btn-primary" onClick={handleCreateTask}>
-          Add Task
+        <button
+          className="btn-primary"
+          onClick={handleCreateTask}
+          disabled={!newTask.trim() || creating}
+        >
+          {creating ? "Adding..." : "Add Task"}
         </button>
       </div>
 
       {/* TASK GRID */}
       <div className="task-grid">
+
         {tasks.length === 0 && (
           <p className="empty-text">No tasks yet 🚀</p>
         )}
@@ -192,6 +210,7 @@ const ProjectDetailPage = () => {
 
           </div>
         ))}
+
       </div>
     </div>
   );
