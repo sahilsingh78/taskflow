@@ -1,0 +1,211 @@
+/* ─── Root height fix (IMPORTANT) ───────────────────── */
+html, body, #root {
+  height: 100%;
+}
+
+/* ─── CSS Variables ─────────────────────────────────── */
+:root {
+  --bg-primary: #0f1117;
+  --bg-secondary: #1a1d27;
+  --bg-card: #21253a;
+  --bg-hover: #2a2f45;
+
+  --accent: #6c63ff;
+  --accent-light: #8b85ff;
+  --accent-dim: rgba(108, 99, 255, 0.15);
+
+  --text-primary: #e8eaf6;
+  --text-secondary: #9499b0;
+  --text-muted: #5c6080;
+
+  --border: #2e3348;
+  --border-hover: #404660;
+
+  --success: #4caf88;
+  --warning: #f0a500;
+  --danger: #e05c5c;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --transition: all 0.2s ease;
+}
+
+/* ─── Reset ─────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* ─── Links & Inputs ───────────────────────── */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+  outline: none;
+}
+
+/* ─── Loading ─────────────────────────────── */
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* ─── Auth Page (FIXED CENTERING) ─────────── */
+.auth-page {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+      ellipse at top left,
+      rgba(108, 99, 255, 0.12) 0%,
+      transparent 60%
+    ),
+    var(--bg-primary);
+}
+
+/* ─── Auth Card ───────────────────────────── */
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: var(--shadow);
+}
+
+/* ─── Form ───────────────────────────────── */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.form-control:focus {
+  border-color: var(--accent);
+}
+
+/* ─── Buttons ────────────────────────────── */
+.btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-light);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+/* ─── Layout ─────────────────────────────── */
+.app-shell {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  background: var(--bg-secondary);
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+}
+
+/* ─── Cards ─────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: var(--radius);
+}
+
+/* ─── Projects ─────────────────────────── */
+.projects-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.project-card {
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.project-card:hover {
+  transform: translateY(-2px);
+}
+
+/* ─── Tasks ───────────────────────────── */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-item {
+  background: var(--bg-card);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.task-item:hover {
+  background: var(--bg-hover);
+}
+
+/* ─── Responsive ───────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+}
