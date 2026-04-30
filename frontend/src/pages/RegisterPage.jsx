@@ -37,19 +37,25 @@ const RegisterPage = () => {
       );
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h2>Create Account</h2>
+        
+        {/* Title */}
+        <h2 className="auth-title">Create Account</h2>
+        <p className="auth-subtitle">
+          Join us and start managing your tasks
+        </p>
 
         {error && <p className="error-text">{error}</p>}
 
+        {/* Name */}
         <div className="form-group">
           <label>Name</label>
           <input
@@ -63,6 +69,7 @@ const RegisterPage = () => {
           />
         </div>
 
+        {/* Email */}
         <div className="form-group">
           <label>Email</label>
           <input
@@ -76,6 +83,7 @@ const RegisterPage = () => {
           />
         </div>
 
+        {/* Password */}
         <div className="form-group">
           <label>Password</label>
           <input
@@ -89,7 +97,7 @@ const RegisterPage = () => {
           />
         </div>
 
-        {/* Role selection (optional but useful for testing admin features) */}
+        {/* Role */}
         <div className="form-group">
           <label>Role</label>
           <select
@@ -103,10 +111,16 @@ const RegisterPage = () => {
           </select>
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={loading}>
+        {/* Button */}
+        <button
+          type="submit"
+          className="auth-btn"
+          disabled={loading}
+        >
           {loading ? "Creating account..." : "Register"}
         </button>
 
+        {/* Footer */}
         <p className="auth-footer">
           Already have an account? <Link to="/login">Login</Link>
         </p>

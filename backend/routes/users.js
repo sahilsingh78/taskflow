@@ -4,19 +4,33 @@ const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-/* ─── GET ALL USERS (ADMIN PURPOSE) ───────────────── */
-router.get("/", protect, async (req, res) => {
+router.use(protect);
+
+//
+// 🟢 GET ALL USERS (ADMIN ONLY)
+//
+router.get("/", async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Access denied (Admin only)",
+      });
+    }
+
     const users = await User.find().select("-password");
+
     res.json(users);
   } catch (err) {
     console.error("GET USERS ERROR:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ─── GET SINGLE USER ───────────────── */
-router.get("/:id", protect, async (req, res) => {
+
+//
+// 🟢 GET SINGLE USER
+//
+router.get("/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
@@ -27,12 +41,15 @@ router.get("/:id", protect, async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("GET USER ERROR:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ─── UPDATE USER ───────────────── */
-router.put("/:id", protect, async (req, res) => {
+
+//
+// 🟢 UPDATE USER
+//
+router.put("/:id", async (req, res) => {
   try {
     const { name, role } = req.body;
 
@@ -42,8 +59,25 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // 🔒 Only admin OR self can update
+    const isSelf = req.user.id === user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({
+        message: "Not allowed to update this user",
+      });
+    }
+
+    // 🔒 Only admin can change role
+    if (role && !isAdmin) {
+      return res.status(403).json({
+        message: "Only admin can change roles",
+      });
+    }
+
     user.name = name || user.name;
-    user.role = role || user.role;
+    if (role && isAdmin) user.role = role;
 
     const updatedUser = await user.save();
 
@@ -53,12 +87,15 @@ router.put("/:id", protect, async (req, res) => {
     });
   } catch (err) {
     console.error("UPDATE USER ERROR:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ─── DELETE USER ───────────────── */
-router.delete("/:id", protect, async (req, res) => {
+
+//
+// 🟢 DELETE USER
+//
+router.delete("/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -66,12 +103,22 @@ router.delete("/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const isSelf = req.user.id === user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    // 🔒 Only admin OR self
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({
+        message: "Not allowed to delete this user",
+      });
+    }
+
     await user.deleteOne();
 
     res.json({ message: "User deleted" });
   } catch (err) {
     console.error("DELETE USER ERROR:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 });
 

@@ -1,16 +1,21 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
-const User = require("../models/User"); 
+const User = require("../models/User");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-/* ─── GENERATE TOKEN ───────────────── */
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+/* ─── GENERATE TOKEN (FIXED) ───────────────── */
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      role: user.role, // 🔥 REQUIRED FOR RBAC
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 };
 
 /* ─── REGISTER ───────────────── */
@@ -48,11 +53,10 @@ router.post(
 
       res.status(201).json({
         user,
-        token: generateToken(user._id),
+        token: generateToken(user), // ✅ FIXED
       });
     } catch (err) {
       console.error("REGISTER ERROR:", err);
-
       res.status(500).json({
         message: err.message,
       });
@@ -86,11 +90,10 @@ router.post(
 
       res.json({
         user,
-        token: generateToken(user._id),
+        token: generateToken(user), // ✅ FIXED
       });
     } catch (err) {
       console.error("LOGIN ERROR:", err);
-
       res.status(500).json({
         message: err.message,
       });

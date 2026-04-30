@@ -1,5 +1,6 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
+
 const Task = require("../models/Task");
 const Project = require("../models/Project");
 const { protect } = require("../middleware/authMiddleware");
@@ -8,7 +9,9 @@ const router = express.Router();
 
 router.use(protect);
 
-//GET tasks for a project
+//
+// 🟢 GET tasks for a project
+//
 router.get("/", async (req, res) => {
   try {
     const { project: projectId, status, priority, assignedTo } = req.query;
@@ -45,7 +48,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-//GET tasks assigned to current user
+
+//
+// 🟢 GET MY TASKS
+//
 router.get("/my", async (req, res) => {
   try {
     const tasks = await Task.find({ assignedTo: req.user._id })
@@ -60,7 +66,10 @@ router.get("/my", async (req, res) => {
   }
 });
 
-//DASHBOARD stats
+
+//
+// 🟢 DASHBOARD
+//
 router.get("/dashboard", async (req, res) => {
   try {
     const projects = await Project.find({
@@ -73,14 +82,17 @@ router.get("/dashboard", async (req, res) => {
     const [totalTasks, doneTasks, inProgressTasks, overdueTasks] =
       await Promise.all([
         Task.countDocuments({ project: { $in: projectIds } }),
+
         Task.countDocuments({
           project: { $in: projectIds },
           status: "done",
         }),
+
         Task.countDocuments({
           project: { $in: projectIds },
           status: "in-progress",
         }),
+
         Task.countDocuments({
           project: { $in: projectIds },
           status: { $ne: "done" },
@@ -101,7 +113,10 @@ router.get("/dashboard", async (req, res) => {
   }
 });
 
-//CREATE task
+
+//
+// 🟢 CREATE TASK (ADMIN ONLY)
+//
 router.post(
   "/",
   [
@@ -109,32 +124,40 @@ router.post(
     body("project").notEmpty().withMessage("Project ID is required"),
   ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const {
-      title,
-      description,
-      project: projectId,
-      assignedTo,
-      priority,
-      dueDate,
-      tags,
-    } = req.body;
-
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const {
+        title,
+        description,
+        project: projectId,
+        assignedTo,
+        priority,
+        dueDate,
+        tags,
+      } = req.body;
+
       const project = await Project.findById(projectId);
 
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      if (!project.isMember(req.user._id)) {
-        return res
-          .status(403)
-          .json({ message: "You are not a member of this project" });
+      const role = project.getMemberRole(req.user._id);
+
+      if (role !== "admin") {
+        return res.status(403).json({
+          message: "Only admin can create tasks",
+        });
+      }
+
+      if (assignedTo && !project.isMember(assignedTo)) {
+        return res.status(400).json({
+          message: "Assigned user must be project member",
+        });
       }
 
       const task = await Task.create({
@@ -159,7 +182,10 @@ router.post(
   }
 );
 
-//UPDATE task
+
+//
+// 🟢 UPDATE TASK
+//
 router.put("/:id", async (req, res) => {
   try {
     const task = await Task.findById(req.params.id).populate("project");
@@ -168,8 +194,17 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    if (!task.project.isMember(req.user._id)) {
-      return res.status(403).json({ message: "Access denied" });
+    const role = task.project.getMemberRole(req.user._id);
+
+    const isCreator =
+      task.createdBy.toString() === req.user._id.toString();
+
+    const isAdmin = role === "admin";
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json({
+        message: "Not allowed to update this task",
+      });
     }
 
     const {
@@ -181,6 +216,12 @@ router.put("/:id", async (req, res) => {
       dueDate,
       tags,
     } = req.body;
+
+    if (assignedTo !== undefined && role !== "admin") {
+      return res.status(403).json({
+        message: "Only admin can assign tasks",
+      });
+    }
 
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
@@ -202,7 +243,10 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-//DELETE task
+
+//
+// 🟢 DELETE TASK
+//
 router.delete("/:id", async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -216,12 +260,13 @@ router.delete("/:id", async (req, res) => {
 
     const isCreator =
       task.createdBy.toString() === req.user._id.toString();
+
     const isAdmin = role === "admin";
 
     if (!isCreator && !isAdmin) {
-      return res
-        .status(403)
-        .json({ message: "Not allowed to delete this task" });
+      return res.status(403).json({
+        message: "Not allowed to delete this task",
+      });
     }
 
     await task.deleteOne();

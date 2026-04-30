@@ -1,79 +1,195 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import api from "../utils/api";
 
-const ProjectsPage = () => {
-  const [projects, setProjects] = useState([]);
-  const [name, setName] = useState("");
+const ProjectDetailPage = () => {
+  const { id } = useParams();
+
+  const [project, setProject] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [members, setMembers] = useState([]);
+
+  const [newTask, setNewTask] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState("medium");
+
   const [loading, setLoading] = useState(true);
 
-  const navigate = useNavigate();
-
-  const fetchProjects = async () => {
+  const fetchData = async () => {
     try {
-      const { data } = await api.get("/projects");
-      setProjects(data);
+      const [projectRes, tasksRes, membersRes] = await Promise.all([
+        api.get(`/projects/${id}`),
+        api.get(`/tasks?project=${id}`),
+        api.get(`/projects/${id}/members`) // 🔥 FIXED
+      ]);
+
+      setProject(projectRes.data);
+      setTasks(tasksRes.data);
+      setMembers(membersRes.data);
     } catch (err) {
-      console.error("Failed to fetch projects:", err);
+      console.error("Error loading project:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    fetchData();
+  }, [id]);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
+  // CREATE TASK
+  const handleCreateTask = async () => {
+    if (!newTask.trim()) return;
 
     try {
-      await api.post("/projects", { name });
-      setName("");
-      fetchProjects();
+      await api.post("/tasks", {
+        title: newTask,
+        project: id,
+        assignedTo,
+        dueDate,
+        priority,
+      });
+
+      setNewTask("");
+      setAssignedTo("");
+      setDueDate("");
+      setPriority("medium");
+
+      fetchData();
     } catch (err) {
-      console.error("Failed to create project:", err);
+      console.error("Failed to create task:", err);
     }
   };
 
-  if (loading) return <p>Loading projects...</p>;
+  // UPDATE STATUS
+  const updateStatus = async (taskId, status) => {
+    try {
+      await api.put(`/tasks/${taskId}`, { status });
+      fetchData();
+    } catch (err) {
+      console.error("Failed to update task:", err);
+    }
+  };
+
+  if (loading) return <div className="center-text">Loading project...</div>;
+  if (!project) return <div className="center-text">Project not found</div>;
 
   return (
-    <div>
+    <div className="page-container">
+
+      {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Projects</h1>
+        <h1 className="page-title">{project.name}</h1>
+        <p className="page-subtitle">{project.description}</p>
       </div>
 
-      {/* Create Project */}
-      <div className="create-project">
+      {/* CREATE TASK */}
+      <div className="task-input-box">
+
         <input
           type="text"
-          placeholder="Enter project name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          placeholder="Task title..."
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
           className="form-control"
         />
 
-        <button className="btn btn-primary" onClick={handleCreate}>
-          Create
+        {/* 🔥 Assign only project members */}
+        <select
+          value={assignedTo}
+          onChange={(e) => setAssignedTo(e.target.value)}
+          className="form-control"
+        >
+          <option value="">Assign to</option>
+          {members.map((m) => (
+            <option key={m.user._id} value={m.user._id}>
+              {m.user.name} ({m.role})
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="form-control"
+        />
+
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          className="form-control"
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+
+        <button className="btn-primary" onClick={handleCreateTask}>
+          Add Task
         </button>
       </div>
 
-      {/* Project List */}
-      <div className="projects-grid">
-        {projects.length === 0 && <p>No projects yet</p>}
+      {/* TASK GRID */}
+      <div className="task-grid">
+        {tasks.length === 0 && (
+          <p className="empty-text">No tasks yet 🚀</p>
+        )}
 
-        {projects.map((project) => (
-          <div
-            key={project._id}
-            className="project-card"
-            onClick={() => navigate(`/projects/${project._id}`)}
-          >
-            <div className="project-name">{project.name}</div>
+        {tasks.map((task) => (
+          <div key={task._id} className="task-card">
 
-            <div className="project-meta">
-              {project.members?.length || 0} members
+            <h3>{task.title}</h3>
+
+            {task.assignedTo && (
+              <p className="task-meta">
+                👤 {task.assignedTo.name}
+              </p>
+            )}
+
+            <p className={`task-priority ${task.priority}`}>
+              ⚡ {task.priority}
+            </p>
+
+            {task.dueDate && (
+              <p className="task-meta">
+                📅 {new Date(task.dueDate).toLocaleDateString()}
+              </p>
+            )}
+
+            {task.isOverdue && (
+              <p className="overdue-badge">⚠ Overdue</p>
+            )}
+
+            <p className={`task-status status-${task.status}`}>
+              Status: <span>{task.status}</span>
+            </p>
+
+            <div className="task-actions">
+              <button
+                className="btn-status"
+                onClick={() => updateStatus(task._id, "todo")}
+              >
+                Todo
+              </button>
+
+              <button
+                className="btn-status"
+                onClick={() => updateStatus(task._id, "in-progress")}
+              >
+                In Progress
+              </button>
+
+              <button
+                className="btn-status done"
+                onClick={() => updateStatus(task._id, "done")}
+              >
+                Done
+              </button>
             </div>
+
           </div>
         ))}
       </div>
@@ -81,4 +197,4 @@ const ProjectsPage = () => {
   );
 };
 
-export default ProjectsPage;
+export default ProjectDetailPage;

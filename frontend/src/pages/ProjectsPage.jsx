@@ -1,64 +1,120 @@
 import React, { useEffect, useState } from "react";
 import api from "../utils/api";
+import { useNavigate } from "react-router-dom";
 
-const DashboardPage = () => {
-  const [stats, setStats] = useState(null);
+const ProjectsPage = () => {
+  const [projects, setProjects] = useState([]);
+  const [newProject, setNewProject] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const { data } = await api.get("/tasks/dashboard");
-        setStats(data);
-      } catch (err) {
-        console.error("Failed to load dashboard:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const navigate = useNavigate();
 
-    fetchDashboard();
+  const fetchProjects = async () => {
+    try {
+      const { data } = await api.get("/projects");
+      setProjects(data);
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
   }, []);
 
-  if (loading) return <p>Loading dashboard...</p>;
+  const handleCreateProject = async () => {
+    if (!newProject.trim()) return;
 
-  if (!stats) return <p>No data available</p>;
+    try {
+      await api.post("/projects", {
+        name: newProject,
+      });
+
+      setNewProject("");
+      fetchProjects();
+    } catch (err) {
+      console.error("Failed to create project:", err);
+    }
+  };
+
+  if (loading) return <div className="center-text">Loading projects...</div>;
 
   return (
-    <div>
+    <div className="page-container">
+
+      {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">Overview of your work</p>
+        <h1 className="page-title">Projects</h1>
+        <p className="page-subtitle">Manage your projects</p>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-value">{stats.totalTasks}</div>
-          <div className="stat-label">Total Tasks</div>
-        </div>
+      {/* Create Project */}
+      <div className="task-input-box">
+        <input
+          type="text"
+          placeholder="Enter project name..."
+          value={newProject}
+          onChange={(e) => setNewProject(e.target.value)}
+          className="form-control"
+        />
+        <button className="btn-primary" onClick={handleCreateProject}>
+          Create Project
+        </button>
+      </div>
 
-        <div className="stat-card">
-          <div className="stat-value">{stats.doneTasks}</div>
-          <div className="stat-label">Completed</div>
-        </div>
+      {/* Projects Grid */}
+      <div className="task-grid">
+        {projects.length === 0 && (
+          <p className="empty-text">No projects yet 🚀</p>
+        )}
 
-        <div className="stat-card">
-          <div className="stat-value">{stats.inProgressTasks}</div>
-          <div className="stat-label">In Progress</div>
-        </div>
+        {projects.map((project) => (
+          <div
+            key={project._id}
+            className="project-card"
+            onClick={() => navigate(`/projects/${project._id}`)}
+            style={{
+              cursor: "pointer",
+              borderLeft: `5px solid ${project.color || "#6366f1"}`,
+            }}
+          >
+            {/* Title */}
+            <h3>{project.name}</h3>
 
-        <div className="stat-card">
-          <div className="stat-value">{stats.overdueTasks}</div>
-          <div className="stat-label">Overdue</div>
-        </div>
+            {/* Description */}
+            {project.description && (
+              <p className="task-meta">{project.description}</p>
+            )}
 
-        <div className="stat-card">
-          <div className="stat-value">{stats.totalProjects}</div>
-          <div className="stat-label">Projects</div>
-        </div>
+            {/* Status */}
+            <p className={`task-status status-${project.status}`}>
+              Status: <span>{project.status}</span>
+            </p>
+
+            {/* Members count */}
+            {project.members && (
+              <p className="task-meta">
+                👥 {project.members.length} members
+              </p>
+            )}
+
+            {/* Due date */}
+            {project.dueDate && (
+              <p className="task-meta">
+                📅 {new Date(project.dueDate).toLocaleDateString()}
+              </p>
+            )}
+
+            <div className="task-meta">
+              Click to view →
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
 
-export default DashboardPage;
+export default ProjectsPage;

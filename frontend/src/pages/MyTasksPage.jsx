@@ -1,112 +1,118 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
 import api from "../utils/api";
 
-const ProjectDetailPage = () => {
-  const { id } = useParams();
-
-  const [project, setProject] = useState(null);
+const MyTasksPage = () => {
   const [tasks, setTasks] = useState([]);
-
-  const [newTask, setNewTask] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // fetch project + tasks
-  const fetchData = async () => {
+  const fetchTasks = async () => {
     try {
-      const projectRes = await api.get(`/projects/${id}`);
-      const tasksRes = await api.get(`/tasks?project=${id}`);
-
-      setProject(projectRes.data);
-      setTasks(tasksRes.data);
+      // 🔥 better endpoint (you already built this)
+      const { data } = await api.get("/tasks/my");
+      setTasks(data);
     } catch (err) {
-      console.error("Error loading project:", err);
+      console.error("Failed to load tasks:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [id]);
+    fetchTasks();
+  }, []);
 
-  // create task
-  const handleCreateTask = async () => {
-    if (!newTask.trim()) return;
-
-    try {
-      await api.post("/tasks", {
-        title: newTask,
-        project: id,
-      });
-
-      setNewTask("");
-      fetchData();
-    } catch (err) {
-      console.error("Failed to create task:", err);
-    }
-  };
-
-  // update status
   const updateStatus = async (taskId, status) => {
     try {
       await api.put(`/tasks/${taskId}`, { status });
-      fetchData();
+      fetchTasks();
     } catch (err) {
       console.error("Failed to update task:", err);
     }
   };
 
-  if (loading) return <p>Loading project...</p>;
-  if (!project) return <p>Project not found</p>;
+  if (loading) return <div className="center-text">Loading tasks...</div>;
 
   return (
-    <div>
-      {/* Project Info */}
+    <div className="page-container">
+
+      {/* Header */}
       <div className="page-header">
-        <h1>{project.name}</h1>
-        <p>{project.description}</p>
+        <h1 className="page-title">My Tasks</h1>
+        <p className="page-subtitle">Tasks assigned to you</p>
       </div>
 
-      {/* Create Task */}
-      <div className="create-task">
-        <input
-          type="text"
-          placeholder="New task..."
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          className="form-control"
-        />
-
-        <button className="btn btn-primary" onClick={handleCreateTask}>
-          Add Task
-        </button>
-      </div>
-
-      {/* Task List */}
-      <div className="task-list">
-        {tasks.length === 0 && <p>No tasks yet</p>}
+      {/* Task Grid */}
+      <div className="task-grid">
+        {tasks.length === 0 && (
+          <p className="empty-text">No tasks assigned 🚀</p>
+        )}
 
         {tasks.map((task) => (
           <div key={task._id} className="task-card">
-            <div className="task-title">{task.title}</div>
 
-            <div className="task-meta">
-              Status: <strong>{task.status}</strong>
-            </div>
+            {/* Title */}
+            <h3>{task.title}</h3>
 
-            {/* Status Buttons */}
+            {/* Project */}
+            {task.project && (
+              <p className="task-meta">
+                📁 {task.project.name}
+              </p>
+            )}
+
+            {/* Assigned */}
+            {task.assignedTo && (
+              <p className="task-meta">
+                👤 {task.assignedTo.name}
+              </p>
+            )}
+
+            {/* Priority */}
+            <p className={`task-priority ${task.priority}`}>
+              ⚡ {task.priority}
+            </p>
+
+            {/* Due Date */}
+            {task.dueDate && (
+              <p className="task-meta">
+                📅 {new Date(task.dueDate).toLocaleDateString()}
+              </p>
+            )}
+
+            {/* Status */}
+            <p className={`task-status status-${task.status}`}>
+              Status: <span>{task.status}</span>
+            </p>
+
+            {/* Overdue */}
+            {task.isOverdue && (
+              <p className="overdue-badge">⚠ Overdue</p>
+            )}
+
+            {/* Actions */}
             <div className="task-actions">
-              <button onClick={() => updateStatus(task._id, "todo")}>
+              <button
+                className="btn-status"
+                onClick={() => updateStatus(task._id, "todo")}
+              >
                 Todo
               </button>
-              <button onClick={() => updateStatus(task._id, "in-progress")}>
+
+              <button
+                className="btn-status"
+                onClick={() => updateStatus(task._id, "in-progress")}
+              >
                 In Progress
               </button>
-              <button onClick={() => updateStatus(task._id, "done")}>
+
+              <button
+                className="btn-status done"
+                onClick={() => updateStatus(task._id, "done")}
+              >
                 Done
               </button>
             </div>
+
           </div>
         ))}
       </div>
@@ -114,4 +120,4 @@ const ProjectDetailPage = () => {
   );
 };
 
-export default ProjectDetailPage;
+export default MyTasksPage;

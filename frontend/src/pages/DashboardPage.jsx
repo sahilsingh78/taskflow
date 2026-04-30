@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 
 const DashboardPage = () => {
+  const { user, logout } = useAuth();
+
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,18 +23,33 @@ const DashboardPage = () => {
     fetchDashboard();
   }, []);
 
-  if (loading) return <p>Loading dashboard...</p>;
-
-  if (!stats) return <p>No data available</p>;
+  if (loading) return <div className="center-text">Loading dashboard...</div>;
+  if (!stats) return <div className="center-text">No data available</div>;
 
   return (
-    <div>
+    <div className="page-container">
+
+      {/* Header */}
+      <div className="dashboard-header">
+        <div>
+          <h1>Welcome, {user?.name}</h1>
+          <p>{user?.email}</p>
+        </div>
+
+        <button className="logout-btn" onClick={logout}>
+          Logout
+        </button>
+      </div>
+
+      {/* Title */}
       <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
+        <h2 className="page-title">Dashboard</h2>
         <p className="page-subtitle">Overview of your work</p>
       </div>
 
+      {/* Stats Grid */}
       <div className="stats-grid">
+
         <div className="stat-card">
           <div className="stat-value">{stats.totalTasks}</div>
           <div className="stat-label">Total Tasks</div>
@@ -56,6 +74,7 @@ const DashboardPage = () => {
           <div className="stat-value">{stats.totalProjects}</div>
           <div className="stat-label">Projects</div>
         </div>
+
       </div>
     </div>
   );

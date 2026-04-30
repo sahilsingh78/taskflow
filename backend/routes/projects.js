@@ -1,16 +1,21 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
+
 const Project = require("../models/Project");
 const Task = require("../models/Task");
 const User = require("../models/User");
+
 const { protect } = require("../middleware/authMiddleware");
+const requireRole = require("../middleware/requireRole");
 
 const router = express.Router();
 
 // all routes require login
 router.use(protect);
 
-//GET all projects of current user
+//
+// ─── GET ALL PROJECTS ─────────────────────────────
+//
 router.get("/", async (req, res) => {
   try {
     const projects = await Project.find({
@@ -30,9 +35,12 @@ router.get("/", async (req, res) => {
   }
 });
 
-//CREATE project
+//
+// ─── CREATE PROJECT (ADMIN ONLY GLOBAL ROLE) ───────
+//
 router.post(
   "/",
+  requireRole("admin"), // 🔥 GLOBAL RBAC
   [body("name").trim().notEmpty().withMessage("Project name is required")],
   async (req, res) => {
     const errors = validationResult(req);
@@ -40,9 +48,9 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, dueDate, color } = req.body;
-
     try {
+      const { name, description, dueDate, color } = req.body;
+
       const project = await Project.create({
         name: name.trim(),
         description,
@@ -68,7 +76,9 @@ router.post(
   }
 );
 
-//GET single project
+//
+// ─── GET SINGLE PROJECT ───────────────────────────
+//
 router.get("/:id", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
@@ -94,7 +104,9 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-//UPDATE project (admin only)
+//
+// ─── UPDATE PROJECT (PROJECT ADMIN / OWNER) ───────
+//
 router.put("/:id", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -132,7 +144,9 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-//ADD member
+//
+// ─── ADD MEMBER (PROJECT ADMIN / OWNER) ───────────
+//
 router.post("/:id/members", async (req, res) => {
   try {
     const { email, role } = req.body;
@@ -158,7 +172,6 @@ router.post("/:id/members", async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // prevent duplicates + owner
     if (
       project.isMember(userToAdd._id) ||
       project.owner.toString() === userToAdd._id.toString()
@@ -181,7 +194,9 @@ router.post("/:id/members", async (req, res) => {
   }
 });
 
-//REMOVE member
+//
+// ─── REMOVE MEMBER (PROJECT ADMIN / OWNER) ────────
+//
 router.delete("/:id/members/:userId", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -199,9 +214,8 @@ router.delete("/:id/members/:userId", async (req, res) => {
       return res.status(403).json({ message: "Only admins can remove members" });
     }
 
-    // prevent removing owner
     if (req.params.userId === project.owner.toString()) {
-      return res.status(400).json({ message: "Cannot remove project owner" });
+      return res.status(400).json({ message: "Cannot remove owner" });
     }
 
     project.members = project.members.filter(
@@ -217,7 +231,9 @@ router.delete("/:id/members/:userId", async (req, res) => {
   }
 });
 
-//DELETE project (owner only)
+//
+// ─── DELETE PROJECT (OWNER ONLY) ──────────────────
+//
 router.delete("/:id", async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -230,9 +246,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(403).json({ message: "Only owner can delete project" });
     }
 
-    // delete related tasks
     await Task.deleteMany({ project: project._id });
-
     await project.deleteOne();
 
     res.json({ message: "Project deleted successfully" });
