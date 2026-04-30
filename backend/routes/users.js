@@ -1,59 +1,78 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+const express = require("express");
+const User = require("../models/User");
+const { protect } = require("../middleware/authMiddleware");
 
-const userSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: [true, "Name is required"],
-      trim: true,
-      minlength: [2, "Name must be at least 2 characters"],
-    },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters"],
-    },
-    role: {
-      type: String,
-      enum: ["admin", "member"],
-      default: "member",
-    },
-    avatar: {
-      type: String,
-      default: "",
-    },
-  },
-  { timestamps: true }
-);
+const router = express.Router();
 
-/* ─── HASH PASSWORD ───────────────── */
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+/* ─── GET ALL USERS (ADMIN PURPOSE) ───────────────── */
+router.get("/", protect, async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (err) {
+    console.error("GET USERS ERROR:", err);
+    res.status(500).json({ message: err.message });
+  }
 });
 
-/* ─── COMPARE PASSWORD ───────────────── */
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
-};
+/* ─── GET SINGLE USER ───────────────── */
+router.get("/:id", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
 
-/* ─── REMOVE PASSWORD FROM RESPONSE ───────────────── */
-userSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  delete obj.password;
-  return obj;
-};
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-/* CORRECT EXPORT */
-module.exports = mongoose.model("User", userSchema);
+    res.json(user);
+  } catch (err) {
+    console.error("GET USER ERROR:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* ─── UPDATE USER ───────────────── */
+router.put("/:id", protect, async (req, res) => {
+  try {
+    const { name, role } = req.body;
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.name = name || user.name;
+    user.role = role || user.role;
+
+    const updatedUser = await user.save();
+
+    res.json({
+      message: "User updated",
+      user: updatedUser,
+    });
+  } catch (err) {
+    console.error("UPDATE USER ERROR:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* ─── DELETE USER ───────────────── */
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await user.deleteOne();
+
+    res.json({ message: "User deleted" });
+  } catch (err) {
+    console.error("DELETE USER ERROR:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+module.exports = router;

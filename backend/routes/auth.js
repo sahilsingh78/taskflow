@@ -1,7 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
-const User = require("../models/User"); // ✅ IMPORTANT (no destructuring)
+const User = require("../models/User"); 
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
