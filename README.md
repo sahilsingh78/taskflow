@@ -28,7 +28,10 @@ This application solves that by providing a structured platform for project mana
 
 ## 📸 Screenshots
 
-*(Add screenshots here if available — or remove this section)*
+<img width="910" height="904" alt="image" src="https://github.com/user-attachments/assets/5b85c3a1-cd10-47ce-9440-a0ef78c112cf" />
+<img width="609" height="750" alt="image" src="https://github.com/user-attachments/assets/c301fa50-874f-48ad-a258-2c1d51f963e9" />
+<img width="1905" height="968" alt="image" src="https://github.com/user-attachments/assets/5f5bdfeb-da75-433e-815e-2a001813787c" />
+
 
 ---
 
