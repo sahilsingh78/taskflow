@@ -7,86 +7,123 @@ A full-stack web application for managing projects, assigning tasks, and trackin
 
 ---
 
+## 🧩 Problem Statement
+
+Managing team tasks across multiple projects can become disorganized without a centralized system.  
+This application solves that by providing a structured platform for project management, task tracking, and role-based collaboration.
+
+---
+
+## ⭐ Highlights
+
+- Full-stack MERN application
+- Role-based access control (Admin / Member)
+- Project-level team management
+- Task assignment with priority & deadlines
+- Dashboard analytics with overdue tracking
+- Secure JWT authentication
+- Fully deployed (Vercel + Railway)
+
+---
+
 ## 📸 Screenshots
 
-| Login | Dashboard | Projects | Task Detail |
-|---|---|---|---|
-| Auth with role selection | Stats overview | Project cards | Tasks + Members tabs |
+*(Add screenshots here if available — or remove this section)*
 
 ---
 
 ## 🚀 Features
 
-### Authentication
+### 🔐 Authentication
 - JWT-based login and registration
 - Role selection on signup (Admin / Member)
-- Protected routes — unauthenticated users redirected to login
-- Token auto-attached to every API request via Axios interceptor
+- Protected routes with automatic redirection
+- Axios interceptor attaches token to every request
 
-### Dashboard
-- Summary cards: Total Tasks, Completed, In Progress, Overdue, Projects
-- Recent tasks assigned to the logged-in user
-- Quick links to navigate to projects
+---
 
-### Project Management
-- Create projects with name, description, color tag, and due date
-- Project cards with member avatars and status badge
+### 📊 Dashboard
+- Total tasks
+- Completed tasks
+- In-progress tasks
+- Overdue tasks
+- Total projects
+- Quick overview of work status
+
+---
+
+### 📁 Project Management
+- Create projects with name, description, color, and due date
 - Project status: Active / Completed / On Hold
-- Only project admins and the owner can edit project details
+- View project details and associated tasks
+- Only admins can edit project details
 
-### Task Management (inside each project)
-- Create tasks with title, description, priority, status, assigned member, due date
-- Filter tasks by status and priority
-- Inline status dropdown to update task status without opening modal
-- Overdue indicator for past-due incomplete tasks
-- Edit and delete tasks (creator or project admin only)
+---
 
-### Team Management (Admin only)
-- View all registered users in the system
-- Search by name or email
-- Filter by role (Admin / Member)
-- Change any user's global role via dropdown
-- Admins cannot change their own role
+### ✅ Task Management
+- Create tasks with:
+  - Title
+  - Description
+  - Priority
+  - Assigned member
+  - Due date
+- Update status (todo → in-progress → done)
+- Overdue task detection
+- Task deletion (admin/creator only)
 
-### Members (per project)
-- Project admins can add members by email
-- Members can be assigned a project-level role (Admin / Member)
-- Project admins can remove members
-- Member list visible to all project members
+---
 
-### Role-Based Access Control
+### 👥 Team Management (Admin Only)
+- View all users
+- Search users by name/email
+- Filter users by role
+- Change user roles (Admin / Member)
+- Admin cannot modify own role
+
+---
+
+### 📌 My Tasks
+- View only assigned tasks
+- Update task status directly
+- Focused task management experience
+
+---
+
+## 🔐 Role-Based Access Control
+
 | Feature | Member | Project Admin | Global Admin |
-|---|---|---|---|
-| View projects they're in | ✅ | ✅ | ✅ |
+|--------|--------|--------------|--------------|
+| View projects | ✅ | ✅ | ✅ |
 | Create projects | ✅ | ✅ | ✅ |
-| Add/remove project members | ❌ | ✅ | ✅ |
-| Edit project details | ❌ | ✅ | ✅ |
+| Add/remove members | ❌ | ✅ | ✅ |
+| Edit project | ❌ | ✅ | ✅ |
 | Create tasks | ✅ | ✅ | ✅ |
-| Delete any task in project | ❌ | ✅ | ✅ |
-| Access Team Management page | ❌ | ❌ | ✅ |
-| Change global user roles | ❌ | ❌ | ✅ |
+| Delete tasks | ❌ | ✅ | ✅ |
+| Team page access | ❌ | ❌ | ✅ |
+| Change roles | ❌ | ❌ | ✅ |
 
 ---
 
 ## 🛠️ Tech Stack
 
-**Frontend**
-- React 18 (Create React App)
+### Frontend
+- React 18
 - React Router v6
-- Axios for API calls
-- Plain CSS with CSS Variables (no UI library)
+- Axios
+- CSS (custom styling)
 
-**Backend**
-- Node.js + Express
-- MongoDB + Mongoose ODM
-- JSON Web Tokens (JWT) for auth
-- bcryptjs for password hashing
-- express-validator for input validation
+### Backend
+- Node.js
+- Express.js
+- MongoDB + Mongoose
+- JWT Authentication
+- bcrypt for hashing
+- express-validator
 
-**Deployment**
-- Frontend: Vercel
-- Backend: Railway
-- Database: MongoDB Atlas
+### Deployment
+- Frontend → Vercel
+- Backend → Railway
+- Database → MongoDB Atlas
 
 ---
 
@@ -205,6 +242,23 @@ The frontend proxies API calls to `localhost:5000` via the `proxy` field in `pac
 | PUT | `/api/users/:id/role` | Global Admin | Change user role |
 
 ---
+
+🔐 Demo Credentials
+
+Admin
+Email: admin@test.com
+Password: 123456
+
+Member
+Email: member@test.com
+Password: 123456
+---
+
+⚡ Challenges Faced
+
+Designing role-based access across frontend and backend
+Managing relationships between users, projects, and tasks
+Handling edge cases like overdue tasks and permissions
 
 ## 👨‍💻 Author
 
