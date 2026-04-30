@@ -1,151 +1,153 @@
-import React, { useEffect, useState } from "react";
-import api from "../utils/api";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import api from "../utils/api";
 
+// This page is only visible to admin users (enforced in AppLayout nav + redirect below)
 const TeamPage = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
 
-  const [members, setMembers] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [updatingId, setUpdatingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [updating, setUpdating] = useState(null); // tracks which user is being updated
 
-  const fetchMembers = async () => {
+  useEffect(() => {
+    // Redirect non-admins who somehow land here
+    if (!isAdmin) {
+      navigate("/dashboard");
+      return;
+    }
+    fetchUsers();
+  }, [isAdmin, navigate]);
+
+  const fetchUsers = async () => {
     try {
       const { data } = await api.get("/users");
-      setMembers(data);
-      setFiltered(data);
+      setUsers(data);
     } catch (err) {
-      console.error(err);
-      setError("Failed to load team");
+      console.error("Failed to load users:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
-  // 🔍 filter logic
-  useEffect(() => {
-    let data = members;
-
-    if (search.trim()) {
-      data = data.filter(
-        (m) =>
-          m.name.toLowerCase().includes(search.toLowerCase()) ||
-          m.email.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    if (roleFilter !== "all") {
-      data = data.filter((m) => m.role === roleFilter);
-    }
-
-    setFiltered(data);
-  }, [search, roleFilter, members]);
-
-  // 🔥 role change (admin only)
-  const updateRole = async (id, role) => {
+  const handleRoleChange = async (userId, newRole) => {
+    setUpdating(userId);
     try {
-      setUpdatingId(id);
-      await api.put(`/users/${id}/role`, { role });
-
-      setMembers((prev) =>
-        prev.map((m) => (m._id === id ? { ...m, role } : m))
+      await api.put(`/users/${userId}/role`, { role: newRole });
+      setUsers((prev) =>
+        prev.map((u) => (u._id === userId ? { ...u, role: newRole } : u))
       );
     } catch (err) {
-      console.error(err);
-      setError("Failed to update role");
+      alert(err.response?.data?.message || "Failed to update role");
     } finally {
-      setUpdatingId(null);
+      setUpdating(null);
     }
   };
 
-  if (loading) return <div className="center-text">Loading team...</div>;
+  const filtered = users.filter((u) => {
+    const matchesSearch =
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = roleFilter ? u.role === roleFilter : true;
+    return matchesSearch && matchesRole;
+  });
+
+  if (!isAdmin) return null;
 
   return (
-    <div className="page-container">
-
-      {/* Header */}
+    <div>
       <div className="page-header">
-        <h1 className="page-title">Team</h1>
-        <p className="page-subtitle">Manage your team members</p>
+        <div>
+          <div className="page-title">Team Management</div>
+          <div className="page-subtitle">View and manage all registered users</div>
+        </div>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)", background: "var(--bg-card)", border: "1px solid var(--border)", padding: "6px 14px", borderRadius: 8 }}>
+          {users.length} total user{users.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
-      {/* Error */}
-      {error && <p className="error-text">{error}</p>}
-
       {/* Filters */}
-      <div className="task-input-box">
-
+      <div className="team-search" style={{ marginBottom: 20 }}>
         <input
-          type="text"
-          placeholder="Search members..."
+          className="form-control"
+          placeholder="🔍  Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="form-control"
+          style={{ maxWidth: 300 }}
         />
-
         <select
+          className="filter-select"
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="form-control"
         >
-          <option value="all">All</option>
+          <option value="">All Roles</option>
           <option value="admin">Admin</option>
           <option value="member">Member</option>
         </select>
-
       </div>
 
-      {/* Grid */}
-      <div className="task-grid">
-
-        {filtered.length === 0 && (
-          <p className="empty-text">No members found</p>
-        )}
-
-        {filtered.map((m) => (
-          <div key={m._id} className="task-card">
-
-            <h3>{m.name}</h3>
-            <p className="task-meta">{m.email}</p>
-
-            <p className="task-meta">
-              Role: <strong>{m.role}</strong>
-            </p>
-
-            {/* Admin controls */}
-            {user?.role === "admin" && user._id !== m._id && (
-              <div className="task-actions">
-                <button
-                  className="btn-status"
-                  disabled={updatingId === m._id}
-                  onClick={() => updateRole(m._id, "member")}
-                >
-                  Member
-                </button>
-
-                <button
-                  className="btn-status done"
-                  disabled={updatingId === m._id}
-                  onClick={() => updateRole(m._id, "admin")}
-                >
-                  {updatingId === m._id ? "Updating..." : "Admin"}
-                </button>
+      {loading ? (
+        <p style={{ color: "var(--text-secondary)" }}>Loading users...</p>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">👥</div>
+          <h3>No users found</h3>
+          <p>Try adjusting your search or filter</p>
+        </div>
+      ) : (
+        <div className="members-list">
+          {filtered.map((u) => (
+            <div className="member-row" key={u._id}>
+              <div
+                className="member-avatar-lg"
+                style={{ background: u.role === "admin" ? "var(--accent)" : "var(--bg-hover)", color: u.role === "admin" ? "#fff" : "var(--text-secondary)" }}
+              >
+                {u.name?.[0]?.toUpperCase()}
               </div>
-            )}
+              <div className="member-info">
+                <div className="member-name">
+                  {u.name}
+                  {u._id === user._id && (
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>(you)</span>
+                  )}
+                </div>
+                <div className="member-email">{u.email}</div>
+              </div>
 
-          </div>
-        ))}
+              {/* Joined date */}
+              <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>
+                Joined {new Date(u.createdAt).toLocaleDateString()}
+              </span>
 
-      </div>
+              {/* Role badge or role changer */}
+              {u._id === user._id ? (
+                // Can't change your own role
+                <span className={`badge badge-${u.role}`}>{u.role}</span>
+              ) : (
+                <div className="member-actions">
+                  <select
+                    className="filter-select"
+                    style={{ fontSize: 12, padding: "5px 10px" }}
+                    value={u.role}
+                    onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                    disabled={updating === u._id}
+                  >
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  {updating === u._id && (
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Saving...</span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,127 +1,165 @@
-import React, { useEffect, useState } from "react";
-import api from "../utils/api";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../utils/api";
 
-const ProjectsPage = () => {
-  const [projects, setProjects] = useState([]);
-  const [newProject, setNewProject] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+const PROJECT_COLORS = ["#6c63ff", "#3ecf8e", "#5ba8f5", "#f7b731", "#e05c5c", "#c87cf0", "#e8753a"];
+
+const CreateProjectModal = ({ onClose, onCreate }) => {
+  const [form, setForm] = useState({ name: "", description: "", color: "#6c63ff", dueDate: "" });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const navigate = useNavigate();
-
-  const fetchProjects = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return setError("Project name is required");
+    setLoading(true);
     try {
-      const { data } = await api.get("/projects");
-      setProjects(data);
+      const { data } = await api.post("/projects", form);
+      onCreate(data);
+      onClose();
     } catch (err) {
-      setError("Failed to load projects");
-      console.error(err);
+      setError(err.response?.data?.message || "Failed to create project");
     } finally {
       setLoading(false);
     }
   };
 
+  return (
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <span className="modal-title">New Project</span>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        {error && <div className="alert alert-error">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Project Name *</label>
+            <input className="form-control" placeholder="e.g. Website Redesign"
+              value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+          </div>
+          <div className="form-group">
+            <label>Description</label>
+            <textarea className="form-control" placeholder="What is this project about?"
+              value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label>Due Date</label>
+            <input type="date" className="form-control"
+              value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label>Color Tag</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+              {PROJECT_COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%", background: c, border: "none", cursor: "pointer",
+                    outline: form.color === c ? `3px solid white` : "none",
+                    transform: form.color === c ? "scale(1.2)" : "scale(1)",
+                    transition: "all 0.15s"
+                  }} />
+              ))}
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? "Creating..." : "Create Project"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const ProjectsPage = () => {
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
-    fetchProjects();
+    api.get("/projects")
+      .then((res) => setProjects(res.data))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleCreateProject = async () => {
-    if (!newProject.trim()) return;
-
-    try {
-      setCreating(true);
-
-      await api.post("/projects", {
-        name: newProject,
-      });
-
-      setNewProject("");
-      fetchProjects();
-    } catch (err) {
-      console.error(err);
-      setError("Failed to create project");
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = (newProject) => {
+    setProjects((prev) => [newProject, ...prev]);
   };
 
-  if (loading) return <div className="center-text">Loading projects...</div>;
+  const filtered = projects.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getInitials = (name = "") => name[0]?.toUpperCase() || "?";
 
   return (
-    <div className="page-container">
-
-      {/* Header */}
+    <div>
       <div className="page-header">
-        <h1 className="page-title">Projects</h1>
-        <p className="page-subtitle">Manage your projects</p>
+        <div>
+          <div className="page-title">Projects</div>
+          <div className="page-subtitle">Manage and track all your projects</div>
+        </div>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Project</button>
       </div>
 
-      {/* Error */}
-      {error && <p className="error-text">{error}</p>}
-
-      {/* Create Project */}
-      <div className="task-input-box">
-        <input
-          type="text"
-          placeholder="Enter project name..."
-          value={newProject}
-          onChange={(e) => setNewProject(e.target.value)}
-          className="form-control"
-        />
-
-        <button
-          className="btn-primary"
-          onClick={handleCreateProject}
-          disabled={creating}
-        >
-          {creating ? "Creating..." : "Create Project"}
-        </button>
+      <div style={{ marginBottom: 20 }}>
+        <input className="form-control" style={{ maxWidth: 320 }}
+          placeholder="🔍  Search projects..."
+          value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {/* Projects Grid */}
-      <div className="task-grid">
-        {projects.length === 0 && (
-          <p className="empty-text">No projects yet 🚀</p>
-        )}
+      {loading ? (
+        <p style={{ color: "var(--text-secondary)" }}>Loading projects...</p>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📁</div>
+          <h3>{search ? "No projects found" : "No projects yet"}</h3>
+          <p>{search ? "Try a different search term" : "Create your first project to get started"}</p>
+          {!search && <button className="btn btn-primary" onClick={() => setShowModal(true)}>Create Project</button>}
+        </div>
+      ) : (
+        <div className="projects-grid">
+          {filtered.map((project) => (
+            <div
+              key={project._id}
+              className="project-card"
+              style={{ "--project-color": project.color }}
+              onClick={() => navigate(`/projects/${project._id}`)}
+            >
+              <div className="project-card-header">
+                <div className="project-name">{project.name}</div>
+                <span className={`project-status-badge status-${project.status}`}>
+                  {project.status.replace("-", " ")}
+                </span>
+              </div>
+              <div className="project-desc">{project.description || "No description"}</div>
+              <div className="project-footer">
+                <div className="member-stack">
+                  {project.members?.slice(0, 4).map((m) => (
+                    <div key={m._id || m.user?._id} className="member-chip" title={m.user?.name}>
+                      {getInitials(m.user?.name)}
+                    </div>
+                  ))}
+                  {project.members?.length > 4 && (
+                    <div className="member-chip">+{project.members.length - 4}</div>
+                  )}
+                </div>
+                <span className="project-meta-text">
+                  {project.dueDate ? `Due ${new Date(project.dueDate).toLocaleDateString()}` : `${project.members?.length || 0} member${project.members?.length !== 1 ? "s" : ""}`}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-        {projects.map((project) => (
-          <div
-            key={project._id}
-            className="project-card"
-            onClick={() => navigate(`/projects/${project._id}`)}
-            style={{
-              cursor: "pointer",
-              borderLeft: `5px solid ${project.color || "#6366f1"}`,
-            }}
-          >
-            <h3>{project.name}</h3>
-
-            {project.description && (
-              <p className="task-meta">{project.description}</p>
-            )}
-
-            <p className={`task-status status-${project.status}`}>
-              Status: <span>{project.status}</span>
-            </p>
-
-            {project.members && (
-              <p className="task-meta">
-                👥 {project.members.length} members
-              </p>
-            )}
-
-            {project.dueDate && (
-              <p className="task-meta">
-                📅 {new Date(project.dueDate).toLocaleDateString()}
-              </p>
-            )}
-
-            <div className="task-meta">Click to view →</div>
-          </div>
-        ))}
-      </div>
+      {showModal && <CreateProjectModal onClose={() => setShowModal(false)} onCreate={handleCreate} />}
     </div>
   );
 };

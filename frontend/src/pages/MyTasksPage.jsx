@@ -1,140 +1,105 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 
 const MyTasksPage = () => {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState(null);
-  const [error, setError] = useState("");
-
-  const fetchTasks = async () => {
-    try {
-      const { data } = await api.get("/tasks/my");
-      setTasks(data);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load tasks");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetchTasks();
+    api.get("/tasks/my")
+      .then((res) => setTasks(res.data))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
 
-  const updateStatus = async (taskId, status) => {
+  const handleStatusChange = async (task, newStatus) => {
     try {
-      setUpdatingId(taskId);
-
-      await api.put(`/tasks/${taskId}`, { status });
-
-      // 🔥 Optimistic update (no full reload needed)
-      setTasks((prev) =>
-        prev.map((t) =>
-          t._id === taskId ? { ...t, status } : t
-        )
-      );
+      const { data } = await api.put(`/tasks/${task._id}`, { status: newStatus });
+      setTasks((prev) => prev.map((t) => (t._id === data._id ? data : t)));
     } catch (err) {
       console.error(err);
-      setError("Failed to update task");
-    } finally {
-      setUpdatingId(null);
     }
   };
 
-  if (loading) return <div className="center-text">Loading tasks...</div>;
+  const getStatusClass = (s) => ({ todo: "badge-todo", "in-progress": "badge-in-progress", "in-review": "badge-in-review", done: "badge-done" })[s] || "badge-todo";
+
+  const filtered = statusFilter ? tasks.filter((t) => t.status === statusFilter) : tasks;
 
   return (
-    <div className="page-container">
-
-      {/* Header */}
+    <div>
       <div className="page-header">
-        <h1 className="page-title">My Tasks</h1>
-        <p className="page-subtitle">Tasks assigned to you</p>
+        <div>
+          <div className="page-title">My Tasks</div>
+          <div className="page-subtitle">Tasks assigned to you across all projects</div>
+        </div>
       </div>
 
-      {/* Error */}
-      {error && <p className="error-text">{error}</p>}
-
-      {/* Task Grid */}
-      <div className="task-grid">
-        {tasks.length === 0 && (
-          <p className="empty-text">No tasks assigned 🚀</p>
-        )}
-
-        {tasks.map((task) => (
-          <div key={task._id} className="task-card">
-
-            {/* Title */}
-            <h3>{task.title}</h3>
-
-            {/* Project */}
-            {task.project && (
-              <p className="task-meta">
-                📁 {task.project.name}
-              </p>
-            )}
-
-            {/* Assigned */}
-            {task.assignedTo && (
-              <p className="task-meta">
-                👤 {task.assignedTo.name}
-              </p>
-            )}
-
-            {/* Priority */}
-            <p className={`task-priority ${task.priority}`}>
-              ⚡ {task.priority}
-            </p>
-
-            {/* Due Date */}
-            {task.dueDate && (
-              <p className="task-meta">
-                📅 {new Date(task.dueDate).toLocaleDateString()}
-              </p>
-            )}
-
-            {/* Status */}
-            <p className={`task-status status-${task.status}`}>
-              Status: <span>{task.status}</span>
-            </p>
-
-            {/* Overdue */}
-            {task.isOverdue && (
-              <p className="overdue-badge">⚠ Overdue</p>
-            )}
-
-            {/* Actions */}
-            <div className="task-actions">
-              <button
-                className="btn-status"
-                disabled={updatingId === task._id}
-                onClick={() => updateStatus(task._id, "todo")}
-              >
-                Todo
-              </button>
-
-              <button
-                className="btn-status"
-                disabled={updatingId === task._id}
-                onClick={() => updateStatus(task._id, "in-progress")}
-              >
-                In Progress
-              </button>
-
-              <button
-                className="btn-status done"
-                disabled={updatingId === task._id}
-                onClick={() => updateStatus(task._id, "done")}
-              >
-                {updatingId === task._id ? "Updating..." : "Done"}
-              </button>
-            </div>
-
-          </div>
-        ))}
+      <div className="task-toolbar" style={{ marginBottom: 18 }}>
+        <select className="filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">All Status</option>
+          <option value="todo">Todo</option>
+          <option value="in-progress">In Progress</option>
+          <option value="in-review">In Review</option>
+          <option value="done">Done</option>
+        </select>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{filtered.length} task{filtered.length !== 1 ? "s" : ""}</span>
       </div>
+
+      {loading ? (
+        <p style={{ color: "var(--text-secondary)" }}>Loading tasks...</p>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🚀</div>
+          <h3>No tasks assigned to you</h3>
+          <p>When someone assigns a task to you, it will appear here</p>
+          <button className="btn btn-primary" onClick={() => navigate("/projects")}>Browse Projects</button>
+        </div>
+      ) : (
+        <div className="task-list">
+          {filtered.map((task) => {
+            const isOverdue = task.dueDate && new Date() > new Date(task.dueDate) && task.status !== "done";
+            return (
+              <div className="task-item" key={task._id}>
+                <div className={`priority-bar priority-${task.priority}`} />
+                <div className="task-main">
+                  <div className={`task-title ${task.status === "done" ? "done" : ""}`}>{task.title}</div>
+                  <div className="task-meta">
+                    <span
+                      style={{ color: "var(--accent-light)", cursor: "pointer" }}
+                      onClick={() => navigate(`/projects/${task.project?._id}`)}
+                    >
+                      📁 {task.project?.name}
+                    </span>
+                    {task.dueDate && (
+                      <span className={isOverdue ? "overdue-text" : ""}>
+                        {isOverdue ? "⚠ Overdue" : `📅 ${new Date(task.dueDate).toLocaleDateString()}`}
+                      </span>
+                    )}
+                    <span className={`badge badge-${task.priority}`}>{task.priority}</span>
+                  </div>
+                </div>
+
+                <select
+                  className="filter-select"
+                  style={{ padding: "5px 8px", fontSize: 12 }}
+                  value={task.status}
+                  onChange={(e) => handleStatusChange(task, e.target.value)}
+                >
+                  <option value="todo">Todo</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="in-review">In Review</option>
+                  <option value="done">Done</option>
+                </select>
+
+                <span className={`badge ${getStatusClass(task.status)}`}>{task.status.replace("-", " ")}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

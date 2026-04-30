@@ -1,124 +1,79 @@
 const express = require("express");
 const User = require("../models/User");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, adminOnly } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 router.use(protect);
 
-//
-// 🟢 GET ALL USERS (ADMIN ONLY)
-//
-router.get("/", async (req, res) => {
+// GET /api/users - list all users (admin only)
+router.get("/", adminOnly, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        message: "Access denied (Admin only)",
-      });
-    }
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+});
 
-    const users = await User.find().select("-password");
+// GET /api/users/search?q= - search users by name or email
+router.get("/search", async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json([]);
+
+    const users = await User.find({
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+      ],
+    })
+      .select("name email role")
+      .limit(10);
 
     res.json(users);
   } catch (err) {
-    console.error("GET USERS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Search failed" });
   }
 });
 
-
-//
-// 🟢 GET SINGLE USER
-//
-router.get("/:id", async (req, res) => {
+// PUT /api/users/:id/role - change a user's global role (admin only)
+router.put("/:id/role", adminOnly, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const { role } = req.body;
+    if (!["admin", "member"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
     }
+
+    // Admins can't downgrade their own role through this endpoint
+    if (req.params.id === req.user._id.toString()) {
+      return res.status(400).json({ message: "You cannot change your own role" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true }
+    ).select("-password");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json(user);
   } catch (err) {
-    console.error("GET USER ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Failed to update role" });
   }
 });
 
-
-//
-// 🟢 UPDATE USER
-//
-router.put("/:id", async (req, res) => {
+// PUT /api/users/profile - update own profile
+router.put("/profile", async (req, res) => {
   try {
-    const { name, role } = req.body;
-
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // 🔒 Only admin OR self can update
-    const isSelf = req.user.id === user._id.toString();
-    const isAdmin = req.user.role === "admin";
-
-    if (!isSelf && !isAdmin) {
-      return res.status(403).json({
-        message: "Not allowed to update this user",
-      });
-    }
-
-    // 🔒 Only admin can change role
-    if (role && !isAdmin) {
-      return res.status(403).json({
-        message: "Only admin can change roles",
-      });
-    }
-
-    user.name = name || user.name;
-    if (role && isAdmin) user.role = role;
-
-    const updatedUser = await user.save();
-
-    res.json({
-      message: "User updated",
-      user: updatedUser,
-    });
+    const { name } = req.body;
+    const user = await User.findById(req.user._id);
+    if (name) user.name = name;
+    await user.save();
+    res.json(user);
   } catch (err) {
-    console.error("UPDATE USER ERROR:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-//
-// 🟢 DELETE USER
-//
-router.delete("/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const isSelf = req.user.id === user._id.toString();
-    const isAdmin = req.user.role === "admin";
-
-    // 🔒 Only admin OR self
-    if (!isSelf && !isAdmin) {
-      return res.status(403).json({
-        message: "Not allowed to delete this user",
-      });
-    }
-
-    await user.deleteOne();
-
-    res.json({ message: "User deleted" });
-  } catch (err) {
-    console.error("DELETE USER ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Failed to update profile" });
   }
 });
 
